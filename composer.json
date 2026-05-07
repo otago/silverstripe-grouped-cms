@@ -1,0 +1,29 @@
+{
+    "name": "otago/silverstripe-grouped-cms",
+    "description": "Collapsible grouped navigation menu for the SilverStripe CMS sidebar",
+    "type": "silverstripe-vendormodule",
+    "license": "BSD-3-Clause",
+    "keywords": [
+        "silverstripe",
+        "cms",
+        "menu",
+        "grouped",
+        "navigation"
+    ],
+    "require": {
+        "php": ">=8.1",
+        "silverstripe/admin": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Otago\\GroupedCMS\\": "src/"
+        }
+    },
+    "extra": {
+        "expose": [
+            "client"
+        ]
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

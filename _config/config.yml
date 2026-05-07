@@ -1,0 +1,8 @@
+---
+Name: otago-grouped-cms
+---
+SilverStripe\Admin\LeftAndMain:
+  extensions:
+    - Otago\GroupedCMS\Extensions\GroupedCMSMenu
+  menu_groups: []
+  menu_groups_alphabetical_sorting: false
