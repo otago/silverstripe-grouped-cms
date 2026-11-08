@@ -26,9 +26,6 @@
 .cms .branded-menu__list-item {
     list-style: none;
 }
-.cms .branded-menu__list-item--children.opened .menu__icon--chevron:before {
-    content: '0';
-}
 .cms .branded-menu__list-item--children > a:first-child {
     padding: 1rem 3rem 1rem 2rem;
     position: relative;
@@ -113,9 +110,11 @@
     max-width: 100%;
     height: auto;
 }
-.cms .cms-menu {
-    width: 294.4px !important;
-    width: 18.4rem !important;
+@media (min-width: 768px) {
+    .cms .cms-menu {
+        width: 294.4px !important;
+        width: 18.4rem !important;
+    }
 }
 .cms .cms-menu.collapsed {
     width: 60px !important;
@@ -249,9 +248,6 @@
     right: 16px;
     right: 1rem;
     left: auto;
-}
-.cms .menu__icon--chevron:before {
-    content: 'U';
 }
 .cms .menu__icon:before {
     color: currentColor;
@@ -450,7 +446,7 @@
     transition: transform 0.2s ease;
 }
 .cms .cms-menu:not(.collapsed) .branded-menu__list-item--children.opened .menu__icon--chevron {
-    transform: translateY(-50%) rotate(180deg);
+    transform: translateY(-50%) rotate(90deg);
 }
 .cms
     .cms-menu:not(.collapsed)
@@ -511,4 +507,92 @@
     background: rgba(0, 113, 196, 0.12) !important;
     box-shadow: inset 4px 0 0 #0071c4;
     font-weight: 600;
+}
+
+/* ================================================================
+   BADGES — a count beside an entry (menu_badge()), summed on its group
+   ================================================================ */
+.cms .branded-menu__badge {
+    position: absolute;
+    top: 50%;
+    right: 16px;
+    transform: translateY(-50%);
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: rgba(67, 83, 109, 0.14);
+    color: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 20px;
+    text-align: center;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+.cms .branded-menu__badge--alert {
+    background: #da273b;
+    color: #fff;
+}
+.cms .branded-menu__badge--info {
+    background: #0071c4;
+    color: #fff;
+}
+/* A group header's badge sits left of its chevron */
+.cms .branded-menu__list-item--children > a:first-child .branded-menu__badge {
+    right: 44px;
+}
+/* An open group shows its children's own badges, so the total goes */
+.cms .cms-menu:not(.collapsed) .branded-menu__list-item--children.opened > a:first-child .branded-menu__badge {
+    display: none;
+}
+.cms .branded-menu__list-item > a {
+    position: relative;
+}
+.cms .cms-menu:not(.collapsed) .branded-menu__list-item > a .text {
+    padding-right: 28px;
+}
+/* Icon rail: the badge becomes a small marker on the icon */
+.cms .cms-menu.collapsed .branded-menu__badge {
+    top: 6px;
+    right: 8px;
+    transform: none;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 10px;
+    line-height: 16px;
+}
+
+/* ================================================================
+   HEADINGS AND DIVIDERS — `heading:` / `divider:` on a group
+   ================================================================ */
+.cms .branded-menu > .branded-menu__list-item--divider {
+    border-top: 1px solid rgba(0, 40, 80, 0.12);
+    margin-top: 6px;
+    padding-top: 6px;
+}
+.cms .branded-menu > .branded-menu__list-item[data-menu-heading]::before {
+    content: attr(data-menu-heading);
+    display: block;
+    padding: 6px 2rem 2px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+.cms .cms-menu.collapsed .branded-menu > .branded-menu__list-item[data-menu-heading]::before {
+    display: none;
+}
+
+/* ================================================================
+   PHONE — the CMS turns the menu into a drawer below 768px
+   ================================================================ */
+@media (max-width: 767.98px) {
+    /* Bigger rows to tap; the drawer's width is the CMS's own */
+    .cms .branded-menu__list-item > a,
+    .cms .branded-menu--child a {
+        min-height: 48px;
+    }
 }

@@ -6,3 +6,7 @@ SilverStripe\Admin\LeftAndMain:
     - Otago\GroupedCMS\Extensions\GroupedCMSMenu
   menu_groups: []
   menu_groups_alphabetical_sorting: false
+  menu_groups_hidden_items: []
+  menu_groups_also_active_for: []
+  menu_groups_segment_matching: false
+  menu_groups_remember_open: false

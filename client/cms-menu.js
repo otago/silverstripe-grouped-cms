@@ -3,13 +3,67 @@
 
   var _syncTimer = null;
   var _observer = null;
+  var _hooksAttached = false;
+  var STORAGE_KEY = 'grouped-cms-menu-open';
+
+  // ── Options (data attributes on the menu <ul>, set from YAML config) ──────
+  // data-segment-matching: a link matches the current URL only on a "/" boundary.
+  // data-remember-open:    groups opened by hand stay open and are remembered.
+
+  function menuOption($menu, name) {
+    return $menu.first().attr('data-' + name) === '1';
+  }
+
+  // ── Remembered open groups (localStorage can throw or be empty) ───────────
+
+  function readOpen() {
+    try {
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      var list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function writeOpen(list) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    } catch (e) {
+      /* storage unavailable — the state lasts until the next page load */
+    }
+  }
+
+  function rememberGroup(code, open) {
+    if (!code) return;
+    var list = readOpen().filter(function (c) {
+      return c !== code;
+    });
+    if (open) list.push(code);
+    writeOpen(list);
+  }
+
+  function setOpened(group, open) {
+    var $g = $(group);
+    $g.toggleClass('opened', open);
+    $g.children('a').first().attr('aria-expanded', open ? 'true' : 'false');
+  }
+
+  // ── URL matching ──────────────────────────────────────────────────────────
+
+  function pathMatches(pathname, linkPath, segmentMatching) {
+    if (!segmentMatching) return pathname.startsWith(linkPath);
+    var base = linkPath.replace(/\/+$/, '') + '/';
+    return (pathname.replace(/\/+$/, '') + '/').startsWith(base);
+  }
 
   // ── Core sync ──────────────────────────────────────────────────────────────
   // Pass 1: .current in DOM (set by SS on render / PJAX class update).
   //         SS sets .current on the group <li> itself during PJAX, and on
   //         both group + child <li>s on initial HTTP render.
   // Pass 2: URL-path matching — always runs to find the active child link.
-  //         Also fills activeGroup when Pass 1 found nothing.
+  //         Also fills activeGroup when Pass 1 found nothing. A child's
+  //         data-also-active paths count as its own.
   // Child .current: SS sets it on HTTP render but NOT on PJAX, so we
   //         mirror it via URL matching every time we sync.
 
@@ -17,6 +71,8 @@
     var $menu = $('.cms-menu:not(.collapsed) .branded-menu');
     if (!$menu.length) return;
 
+    var segmentMatching = menuOption($menu, 'segment-matching');
+    var rememberOpen = menuOption($menu, 'remember-open');
     var $groups = $menu.find('.branded-menu__list-item--children');
     var activeGroup = null;
     var activeChild = null;
@@ -37,26 +93,46 @@
       $(this)
         .find('.branded-menu--child a[href]')
         .each(function () {
+          var link = this;
+          var $item = $(link).closest('.branded-menu__list-item');
+          var paths = [];
           try {
-            var linkPath = new URL(this.href, window.location.origin).pathname;
-            if (pathname.startsWith(linkPath) && linkPath.length > bestLen) {
-              bestLen = linkPath.length;
-              activeChild = $(this).closest('.branded-menu__list-item')[0];
-              if (!activeGroup) {
-                activeGroup = $(this).closest('.branded-menu__list-item--children')[0];
-              }
-            }
+            paths.push(new URL(link.href, window.location.origin).pathname);
           } catch (e) {
             /* invalid href — skip */
           }
+          ($item.attr('data-also-active') || '').split(/\s+/).forEach(function (p) {
+            if (!p) return;
+            try {
+              // Relative to <base>, as the menu's own links are.
+              paths.push(new URL(p, document.baseURI).pathname);
+            } catch (e) {
+              /* invalid path — skip */
+            }
+          });
+          paths.forEach(function (linkPath) {
+            if (pathMatches(pathname, linkPath, segmentMatching) && linkPath.length > bestLen) {
+              bestLen = linkPath.length;
+              activeChild = $item[0];
+              if (!activeGroup) {
+                activeGroup = $(link).closest('.branded-menu__list-item--children')[0];
+              }
+            }
+          });
         });
     });
 
-    if (!activeGroup) return;
-
-    // Sync accordion open state.
+    // Sync accordion open state: the active group is open. Without remember-open the
+    // others close (an accordion); with it, groups opened by hand stay as they were.
+    var remembered = rememberOpen ? readOpen() : [];
     $groups.each(function () {
-      $(this).toggleClass('opened', this === activeGroup);
+      if (this === activeGroup) {
+        setOpened(this, true);
+      } else if (rememberOpen) {
+        if (remembered.indexOf($(this).attr('data-group')) !== -1) setOpened(this, true);
+      } else if (activeGroup) {
+        setOpened(this, false);
+      }
     });
 
     // Sync child .current — SS only sets it on HTTP render, not on PJAX.
@@ -88,6 +164,9 @@
   }
 
   function attachNavigationHooks() {
+    if (_hooksAttached) return;
+    _hooksAttached = true;
+
     // replaceState — SS uses this for every PJAX URL update (confirmed via diagnostics).
     // Wrapping it means we fire only on actual navigation, not background XHR.
     var origReplace = history.replaceState.bind(history);
@@ -98,7 +177,9 @@
 
     // popstate — back / forward.
     window.addEventListener('popstate', scheduleSync);
+  }
 
+  function observeMenu() {
     // MutationObserver — belt-and-suspenders: fires precisely when SS toggles
     // .current in the DOM, regardless of replaceState timing.
     var menuEl = document.getElementById('cms-menu');
@@ -131,6 +212,7 @@
         syncOpenedToActive();
         addCollapsedTooltips();
         attachNavigationHooks();
+        observeMenu();
         this._super();
       },
       onunmatch: function () {
@@ -139,6 +221,30 @@
           _observer = null;
         }
         this._super();
+      },
+    });
+
+    // A group header expands and collapses its group. The CMS's own menu click handler
+    // would navigate to the header's link (the first child) instead, so this more specific
+    // rule takes the click. In the collapsed icon rail the children cannot show, so there
+    // the header still opens the first child.
+    $('.cms-menu__list li.branded-menu__list-item--children > a').entwine({
+      onclick: function (e) {
+        if (this.closest('.cms-menu').hasClass('collapsed')) {
+          this._super(e);
+          return;
+        }
+        if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) {
+          // Modifier or middle click: let the browser open the link in a new tab.
+          return;
+        }
+        e.preventDefault();
+        var $group = this.parent();
+        var open = !$group.hasClass('opened');
+        setOpened($group[0], open);
+        if (this.closest('.branded-menu').attr('data-remember-open') === '1') {
+          rememberGroup($group.attr('data-group'), open);
+        }
       },
     });
   });
